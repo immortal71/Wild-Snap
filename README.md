@@ -621,13 +621,13 @@ This is the long-term value of the app beyond gaming:
 
 ## 14. SECURITY CONSIDERATIONS
 
-- All photos scanned for CSAM (using Google SafeSearch API) before storage
+- All photos scanned for harmful content before storage (e.g., SafeSearch for general moderation plus a dedicated CSAM-compliance service where required)
 - Rate limiting: max 50 photo submissions per user per day (anti-farming)
 - JWT tokens with 15-minute expiry + refresh tokens (7-day, rotated)
 - Photos stored with random UUID names (not predictable URLs)
 - S3 buckets private — all photo URLs signed with 1-hour expiry
 - GDPR-ready: users can request full data export or account deletion
-- Location data: stored only as general region (city-level), not precise GPS, in public-facing APIs
+- Precise GPS metadata may be stored internally for anti-cheat and validation, but public-facing APIs expose only generalized region-level location data
 
 ---
 
