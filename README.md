@@ -15,7 +15,7 @@
 
 **Platforms:**  
 - Phase 1: Mobile App (iOS + Android via React Native or Flutter)  
-- Phase 2: Web App (React.js) with shared backend
+- Phase 2: Web App (React.js + Next.js) with shared backend
 
 ---
 
@@ -621,13 +621,13 @@ This is the long-term value of the app beyond gaming:
 
 ## 14. SECURITY CONSIDERATIONS
 
-- All photos scanned for harmful content before storage (e.g., SafeSearch for general moderation plus a dedicated CSAM-compliance service where required)
+- All photos scanned through a content-moderation pipeline before storage (general moderation API + dedicated CSAM-compliance service where required)
 - Rate limiting: max 50 photo submissions per user per day (anti-farming)
 - JWT tokens with 15-minute expiry + refresh tokens (7-day, rotated)
 - Photos stored with random UUID names (not predictable URLs)
 - S3 buckets private — all photo URLs signed with 1-hour expiry
 - GDPR-ready: users can request full data export or account deletion
-- Precise GPS metadata may be stored internally for anti-cheat and validation, but public-facing APIs expose only generalized region-level location data
+- Precise GPS metadata may be stored internally for anti-cheat and validation, but public-facing APIs expose only generalized region-level location data with explicit user consent and privacy-law compliance (e.g., GDPR/CCPA)
 
 ---
 
