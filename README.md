@@ -545,17 +545,19 @@ Background sync:
 | Weekly leaderboard reset | "🏁 New week! Leaderboard has reset. Go catch something rare!" | Push |
 | Sync complete after offline | "✅ 4 photos synced. You earned 340 points!" | In-app |
 
+Accessibility note: notification templates should include clear text labels and not rely on emoji alone.
+
 ---
 
 ## 10. CONSERVATION DATABASE LAYER (FUTURE)
 
 This is the long-term value of the app beyond gaming:
 
-- Every sighting is geo-tagged and timestamped → builds a real spatial database
+- Every sighting is geo-tagged and timestamped, building a real spatial database
 - For rare/endangered animals, alert partner organizations (WWF, IUCN, local wildlife departments)
 - Public API for researchers: `GET /api/research/sightings?species=panthera_uncia&from=2024-01-01`
 - Heatmap visualization of species distribution over time
-- Anomaly detection: if a CR (Critically Endangered) species is photographed outside known range → trigger alert to conservationists
+- Anomaly detection: if a CR (Critically Endangered) species is photographed outside known range, trigger an alert to conservationists
 - Annual public "WildSnap Report" — crowdsourced wildlife data published openly
 
 ---
@@ -627,7 +629,9 @@ This is the long-term value of the app beyond gaming:
 - Photos stored with random UUID names (not predictable URLs)
 - S3 buckets private — all photo URLs signed with 1-hour expiry
 - GDPR-ready: users can request full data export or account deletion
-- Precise GPS metadata may be stored internally for anti-cheat and validation, but public-facing APIs expose only generalized region-level location data with explicit user consent and privacy-law compliance (e.g., GDPR/CCPA)
+- Precise GPS metadata may be stored internally for anti-cheat and validation.
+- Public-facing APIs expose only generalized region-level location data.
+- Location collection and sharing must require explicit user consent and comply with privacy laws (e.g., GDPR/CCPA).
 
 ---
 
