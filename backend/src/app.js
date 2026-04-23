@@ -14,8 +14,15 @@ const { errorHandler } = require('./middleware/errorHandler');
 
 const app = express();
 
-// CORS
-app.use(cors({ origin: process.env.ALLOWED_ORIGINS || '*', credentials: true }));
+// CORS — restrict to configured origins; fall back to localhost in development only
+const allowedOriginsRaw = process.env.ALLOWED_ORIGINS || '';
+const corsOrigin =
+  allowedOriginsRaw
+    ? allowedOriginsRaw.split(',').map((o) => o.trim())
+    : process.env.NODE_ENV === 'production'
+      ? false
+      : 'http://localhost:3000';
+app.use(cors({ origin: corsOrigin, credentials: true }));
 
 // Body parsing
 app.use(express.json({ limit: '1mb' }));

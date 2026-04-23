@@ -8,6 +8,7 @@ const { identifyPhoto, matchAnimalFromSuggestions } = require('../services/aiSer
 const { calculateAndAwardPoints, updateStreak } = require('../services/pointsService');
 const { checkAndAwardAchievements } = require('../services/achievementService');
 const { storeFile, deleteFile } = require('../services/storageService');
+const { createError } = require('../middleware/errorHandler');
 
 const router = express.Router();
 const MAX_SUBMISSIONS_PER_DAY = parseInt(process.env.MAX_PHOTO_SUBMISSIONS_PER_DAY, 10) || 50;
@@ -17,7 +18,7 @@ const upload = multer({
   limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB
   fileFilter(req, file, cb) {
     if (!file.mimetype.startsWith('image/')) {
-      return cb(Object.assign(new Error('Only image files are allowed'), { status: 400 }));
+      return cb(createError(400, 'Only image files are allowed'));
     }
     cb(null, true);
   },
@@ -91,7 +92,7 @@ async function processSighting(userId, fileBuffer, filename, mimetype, body) {
   if (lat && lng) {
     const valid = await velocityCheck(userId, lat, lng, capturedAt);
     if (!valid) {
-      throw Object.assign(new Error('Location data failed velocity check — possible GPS spoofing'), { status: 422 });
+      throw createError(422, 'Location data failed velocity check — possible GPS spoofing');
     }
   }
 
@@ -362,11 +363,46 @@ router.post('/sync', authenticate, async (req, res, next) => {
           }
           mimetype = matches[1];
           fileBuffer = Buffer.from(matches[2], 'base64');
-        } else if (photo.startsWith('http')) {
-          const axios = require('axios');
-          const imgRes = await axios.get(photo, { responseType: 'arraybuffer', timeout: 15000 });
+        } else if (photo.startsWith('https://')) {
+          // Only allow HTTPS URLs to public hosts — block private/internal ranges
+          let parsedUrl;
+          try {
+            parsedUrl = new URL(photo);
+          } catch {
+            results.push({ success: false, error: 'Invalid photo URL' });
+            continue;
+          }
+          const hostname = parsedUrl.hostname.toLowerCase();
+          // Block private IP ranges and localhost
+          const blockedPatterns = [
+            /^localhost$/,
+            /^127\./,
+            /^10\./,
+            /^172\.(1[6-9]|2\d|3[01])\./,
+            /^192\.168\./,
+            /^169\.254\./,
+            /^::1$/,
+            /^fc00:/,
+            /^fe80:/,
+          ];
+          if (blockedPatterns.some((p) => p.test(hostname))) {
+            results.push({ success: false, error: 'Photo URL points to a blocked address' });
+            continue;
+          }
+          const axiosLib = require('axios');
+          const imgRes = await axiosLib.get(photo, {
+            responseType: 'arraybuffer',
+            timeout: 15000,
+            maxRedirects: 3,
+            maxContentLength: 10 * 1024 * 1024,
+          });
+          const contentType = imgRes.headers['content-type'] || '';
+          if (!contentType.startsWith('image/')) {
+            results.push({ success: false, error: 'URL did not return an image' });
+            continue;
+          }
           fileBuffer = Buffer.from(imgRes.data);
-          mimetype = imgRes.headers['content-type'] || 'image/jpeg';
+          mimetype = contentType;
         } else {
           // Assume raw base64
           fileBuffer = Buffer.from(photo, 'base64');

@@ -601,16 +601,16 @@ const animals = [
     ai_labels: ['wild yak', 'Bos mutus', 'yak'],
   },
   {
-    common_name: 'Greater One-Horned Rhinoceros',
-    scientific_name: 'Rhinoceros unicornis',
+    common_name: 'Sumatran Rhinoceros',
+    scientific_name: 'Dicerorhinus sumatrensis',
     category: 'mammal',
     rarity: 'legendary',
     base_points: 500,
-    iucn_status: 'VU',
-    description: 'A conservation success story — Nepal\'s Chitwan population has grown from near-extinction. A true giant of the floodplains.',
-    habitat: 'Terai grasslands and forests near rivers',
-    typical_regions: ['Nepal (Chitwan, Bardia)', 'India (Kaziranga)'],
-    ai_labels: ['greater one-horned rhinoceros', 'Indian rhino', 'Rhinoceros unicornis', 'armoured rhino', 'great Indian rhinoceros'],
+    iucn_status: 'CR',
+    description: 'The smallest and most ancient rhinoceros species, with fewer than 80 individuals remaining. Critically endangered and extremely rarely photographed.',
+    habitat: 'Dense tropical highland forests',
+    typical_regions: ['Indonesia (Sumatra, Borneo)', 'Malaysia (historical range includes South Asia borders)'],
+    ai_labels: ['Sumatran rhinoceros', 'Dicerorhinus sumatrensis', 'hairy rhinoceros', 'Asian two-horned rhino'],
   },
 ];
 

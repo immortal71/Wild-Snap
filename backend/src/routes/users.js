@@ -3,6 +3,7 @@ const multer = require('multer');
 const db = require('../config/database');
 const { authenticate } = require('../middleware/auth');
 const { storeFile } = require('../services/storageService');
+const { createError } = require('../middleware/errorHandler');
 
 const router = express.Router();
 
@@ -11,7 +12,7 @@ const upload = multer({
   limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB for avatars
   fileFilter(req, file, cb) {
     if (!file.mimetype.startsWith('image/')) {
-      return cb(Object.assign(new Error('Only image files are allowed'), { status: 400 }));
+      return cb(createError(400, 'Only image files are allowed'));
     }
     cb(null, true);
   },

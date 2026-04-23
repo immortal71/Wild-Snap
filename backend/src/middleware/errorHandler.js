@@ -1,3 +1,15 @@
+/**
+ * Create an HTTP error with a numeric status code.
+ * @param {number} status - HTTP status code
+ * @param {string} message
+ * @returns {Error}
+ */
+function createError(status, message) {
+  const err = new Error(message);
+  err.status = status;
+  return err;
+}
+
 function errorHandler(err, req, res, next) {
   console.error('Unhandled error:', err);
 
@@ -31,4 +43,4 @@ function errorHandler(err, req, res, next) {
   return res.status(status).json({ success: false, error: message });
 }
 
-module.exports = { errorHandler };
+module.exports = { errorHandler, createError };

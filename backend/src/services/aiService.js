@@ -1,6 +1,5 @@
 const axios = require('axios');
 const FormData = require('form-data');
-const fs = require('fs');
 
 const INATURALIST_API_URL = process.env.INATURALIST_API_URL || 'https://api.inaturalist.org/v1';
 
@@ -11,19 +10,18 @@ const CONFIDENCE = {
 };
 
 /**
- * Submit an image buffer or file path to iNaturalist computer vision.
- * @param {string|Buffer} photoSource - absolute file path or Buffer
+ * Submit an image Buffer to iNaturalist computer vision for identification.
+ * @param {Buffer} photoBuffer - image data
  * @param {string} [filename]
  * @returns {Promise<{topResult, status, suggestions, rawResponse}>}
  */
-async function identifyPhoto(photoSource, filename = 'photo.jpg') {
-  const form = new FormData();
-
-  if (Buffer.isBuffer(photoSource)) {
-    form.append('image', photoSource, { filename, contentType: 'image/jpeg' });
-  } else {
-    form.append('image', fs.createReadStream(photoSource), { filename });
+async function identifyPhoto(photoBuffer, filename = 'photo.jpg') {
+  if (!Buffer.isBuffer(photoBuffer)) {
+    throw new TypeError('identifyPhoto requires a Buffer');
   }
+
+  const form = new FormData();
+  form.append('image', photoBuffer, { filename, contentType: 'image/jpeg' });
 
   let rawResponse;
   try {

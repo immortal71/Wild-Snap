@@ -83,15 +83,16 @@ async function calculateAndAwardPoints(userId, animal, sightingId, capturedAt) {
     const user = userRes.rows[0];
     if (user) {
       const weekKey = getWeekKey();
-      await redis.zincrby(`leaderboard:weekly:global`, pointsAwarded, userId);
+      const globalKey = `leaderboard:weekly:global:${weekKey}`;
+      await redis.zincrby(globalKey, pointsAwarded, userId);
       if (user.country_code) {
-        await redis.zincrby(`leaderboard:weekly:country:${user.country_code}`, pointsAwarded, userId);
+        await redis.zincrby(`leaderboard:weekly:country:${user.country_code}:${weekKey}`, pointsAwarded, userId);
       }
       if (user.region) {
-        await redis.zincrby(`leaderboard:weekly:region:${user.region}`, pointsAwarded, userId);
+        await redis.zincrby(`leaderboard:weekly:region:${user.region}:${weekKey}`, pointsAwarded, userId);
       }
       // Set expiry on weekly keys — 14 days
-      await redis.expire(`leaderboard:weekly:global`, 14 * 24 * 3600);
+      await redis.expire(globalKey, 14 * 24 * 3600);
     }
   } catch (redisErr) {
     console.error('Redis leaderboard update failed:', redisErr.message);
