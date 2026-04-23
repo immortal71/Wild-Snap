@@ -231,7 +231,7 @@ async function processSighting(userId, fileBuffer, filename, mimetype, body) {
 
   // Duplicate detection
   if (perceptualHash && await isDuplicatePhoto(perceptualHash, userId)) {
-    throw createError(409, 'This photo appears to be a duplicate of a recent submission');
+    throw createError(409, 'This photo appears to be a duplicate of a submission from the last 24 hours');
   }
 
   // Generate thumbnail with sharp
@@ -262,6 +262,10 @@ async function processSighting(userId, fileBuffer, filename, mimetype, body) {
   const isOutOfRange = animal ? isOutOfTypicalRange(animal, lat, lng) : false;
 
   // Insert sighting
+  // Column order: $1=user_id, $2=animal_id, $3=photo_url, $4=thumbnail_url,
+  //   $5=latitude, $6=longitude, $7=altitude_m, $8=compass_bearing,
+  //   $9=captured_at, $10=ai_confidence, $11=ai_raw_response,
+  //   $12=photo_quality_score, $13=offline_queued, sync_status='synced' (literal), $14=perceptual_hash
   const sightingRes = await db.query(
     `INSERT INTO sightings
        (user_id, animal_id, photo_url, thumbnail_url, latitude, longitude,
@@ -270,20 +274,20 @@ async function processSighting(userId, fileBuffer, filename, mimetype, body) {
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'synced',$14)
      RETURNING *`,
     [
-      userId,
-      animal?.id || null,
-      photoUrl,
-      thumbnailUrl,
-      lat || null,
-      lng || null,
-      altitude_m ? parseInt(altitude_m) : null,
-      compass_bearing ? parseInt(compass_bearing) : null,
-      capturedAt,
-      aiConfidence,
-      rawResponse ? JSON.stringify(rawResponse) : null,
-      photoQualityScore !== null ? parseFloat(photoQualityScore.toFixed(4)) : null,
-      offline_queued === true || offline_queued === 'true',
-      perceptualHash,
+      userId,           // $1
+      animal?.id || null, // $2
+      photoUrl,         // $3
+      thumbnailUrl,     // $4
+      lat || null,      // $5
+      lng || null,      // $6
+      altitude_m ? parseInt(altitude_m) : null,         // $7
+      compass_bearing ? parseInt(compass_bearing) : null, // $8
+      capturedAt,       // $9
+      aiConfidence,     // $10
+      rawResponse ? JSON.stringify(rawResponse) : null, // $11
+      photoQualityScore !== null ? parseFloat(photoQualityScore.toFixed(4)) : null, // $12
+      offline_queued === true || offline_queued === 'true', // $13
+      perceptualHash,   // $14
     ]
   );
   const sighting = sightingRes.rows[0];

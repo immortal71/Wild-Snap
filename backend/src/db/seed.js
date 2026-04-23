@@ -686,8 +686,8 @@ async function seedChallenges() {
 
   const challenges = [
     {
-      title: '🐦 Bird Watcher — Photograph any bird today for 2× points',
-      description: 'Photograph at least one bird species today to earn a 2× points multiplier on that catch.',
+      title: '🐦 Bird Watcher - Photograph any bird today for 2x points',
+      description: 'Photograph at least one bird species today to earn a 2x points multiplier on that catch.',
       challenge_type: 'daily',
       target_category: 'bird',
       points_multiplier: 2.0,
@@ -697,7 +697,7 @@ async function seedChallenges() {
       ends_at: todayEnd.toISOString(),
     },
     {
-      title: '🦎 Reptile Week — Catch 3 reptiles this week',
+      title: '🦎 Reptile Week - Catch 3 reptiles this week',
       description: 'Photograph three different reptile sightings this week to earn a 500-point bonus.',
       challenge_type: 'weekly',
       target_category: 'reptile',
@@ -708,7 +708,7 @@ async function seedChallenges() {
       ends_at: weekEnd.toISOString(),
     },
     {
-      title: '🌟 Rarity Hunter — Catch a Rare (or better) animal this week',
+      title: '🌟 Rarity Hunter - Catch a Rare (or better) animal this week',
       description: 'Photograph at least one rare, epic, or legendary animal this week for a 750-point bonus.',
       challenge_type: 'weekly',
       target_rarity: 'rare',

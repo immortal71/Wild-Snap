@@ -171,7 +171,7 @@ router.post('/apple', async (req, res, next) => {
       const keys = keysRes.data.keys;
 
       // Decode the token header to find the right key
-      const [headerB64] = identityToken.split('.');
+      const headerB64 = identityToken.split('.')[0]; // JWT header (base64url-encoded)
       const header = JSON.parse(Buffer.from(headerB64, 'base64url').toString());
 
       const matchingKey = keys.find((k) => k.kid === header.kid);

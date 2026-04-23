@@ -102,8 +102,8 @@ async function notifyDailyChallenge(fcmToken, challengeTitle) {
 async function notifyLeaderboardOvertaken(fcmToken, overtakerUsername, newRank) {
   await sendPush(
     fcmToken,
-    '⚔️ You\'ve been overtaken!',
-    `${overtakerUsername} just passed you! You\'re now #${newRank}`,
+    "⚔️ You've been overtaken!",
+    `${overtakerUsername} just passed you! You're now #${newRank}`,
     { type: 'leaderboard_overtaken', new_rank: String(newRank) }
   );
 }
