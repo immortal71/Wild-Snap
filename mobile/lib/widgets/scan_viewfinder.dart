@@ -31,47 +31,52 @@ class _ScanViewfinderState extends State<ScanViewfinder>
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        // Corner brackets
-        Positioned(top: 0, left: 0, child: _corner(true, true)),
-        Positioned(top: 0, right: 0, child: _corner(true, false)),
-        Positioned(bottom: 0, left: 0, child: _corner(false, true)),
-        Positioned(bottom: 0, right: 0, child: _corner(false, false)),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final viewfinderHeight = constraints.maxHeight;
+        return Stack(
+          children: [
+            // Corner brackets
+            Positioned(top: 0, left: 0, child: _corner(true, true)),
+            Positioned(top: 0, right: 0, child: _corner(true, false)),
+            Positioned(bottom: 0, left: 0, child: _corner(false, true)),
+            Positioned(bottom: 0, right: 0, child: _corner(false, false)),
 
-        // Scan line
-        AnimatedBuilder(
-          animation: _scanAnimation,
-          builder: (context, _) {
-            return Positioned(
-              top: _scanAnimation.value * 280,
-              left: 0,
-              right: 0,
-              child: Container(
-                height: 2,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      Colors.transparent,
-                      AppColors.accentPrimary.withOpacity(0.8),
-                      AppColors.accentPrimary,
-                      AppColors.accentPrimary.withOpacity(0.8),
-                      Colors.transparent,
-                    ],
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.accentPrimary.withOpacity(0.5),
-                      blurRadius: 8,
-                      spreadRadius: 2,
+            // Scan line — position is proportional to actual container height
+            AnimatedBuilder(
+              animation: _scanAnimation,
+              builder: (context, _) {
+                return Positioned(
+                  top: _scanAnimation.value * viewfinderHeight,
+                  left: 0,
+                  right: 0,
+                  child: Container(
+                    height: 2,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          Colors.transparent,
+                          AppColors.accentPrimary.withOpacity(0.8),
+                          AppColors.accentPrimary,
+                          AppColors.accentPrimary.withOpacity(0.8),
+                          Colors.transparent,
+                        ],
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.accentPrimary.withOpacity(0.5),
+                          blurRadius: 8,
+                          spreadRadius: 2,
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-              ),
-            );
-          },
-        ),
-      ],
+                  ),
+                );
+              },
+            ),
+          ],
+        );
+      },
     );
   }
 

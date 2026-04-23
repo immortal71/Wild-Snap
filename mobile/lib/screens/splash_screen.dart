@@ -50,15 +50,20 @@ class _SplashScreenState extends State<SplashScreen>
       duration: const Duration(milliseconds: 2400),
     );
 
-    // Staggered letter animations
-    for (int i = 0; i < _letters.length; i++) {
-      final start = 0.05 * i;
-      final end = start + 0.15;
+    // Staggered letter animations — distribute evenly so no interval exceeds 1.0
+    final letterCount = _letters.length;
+    // Each letter occupies a window; stagger uses 60% of total duration,
+    // each letter's reveal takes 20% of the window, ensuring end <= 1.0
+    const staggerEnd = 0.6;
+    const revealWidth = 0.2;
+    for (int i = 0; i < letterCount; i++) {
+      final start = (staggerEnd / letterCount) * i;
+      final end = (start + revealWidth).clamp(0.0, 1.0);
       _letterAnimations.add(
         Tween<double>(begin: 0, end: 1).animate(
           CurvedAnimation(
             parent: _controller,
-            curve: Interval(start.clamp(0, 1), end.clamp(0, 1), curve: Curves.elasticOut),
+            curve: Interval(start, end, curve: Curves.elasticOut),
           ),
         ),
       );

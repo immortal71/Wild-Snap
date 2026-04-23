@@ -1,4 +1,5 @@
 const express = require('express');
+const path = require('path');
 const multer = require('multer');
 const sharp = require('sharp');
 const axios = require('axios');
@@ -84,10 +85,16 @@ async function velocityCheck(userId, lat, lng, capturedAt) {
 /**
  * Core logic: process a single sighting upload.
  */
+function sanitizeFilename(filename) {
+  // Remove path components and allow only safe characters
+  return path.basename(filename).replace(/[^a-zA-Z0-9._-]/g, '_');
+}
+
 async function processSighting(userId, fileBuffer, filename, mimetype, body) {
   const { lat, lng, altitude_m, compass_bearing, captured_at, offline_queued = false } = body;
 
   const capturedAt = captured_at || new Date().toISOString();
+  const safeFilename = sanitizeFilename(filename);
 
   // Velocity check
   if (lat && lng) {
@@ -107,8 +114,8 @@ async function processSighting(userId, fileBuffer, filename, mimetype, body) {
 
   // Store original and thumbnail
   const [photoUrl, thumbnailUrl] = await Promise.all([
-    storeFile(fileBuffer, filename, mimetype, 'sightings'),
-    storeFile(thumbnailBuffer, `thumb_${filename}`, 'image/jpeg', 'sightings'),
+    storeFile(fileBuffer, safeFilename, mimetype, 'sightings'),
+    storeFile(thumbnailBuffer, `thumb_${safeFilename}`, 'image/jpeg', 'sightings'),
   ]);
 
   // AI identification

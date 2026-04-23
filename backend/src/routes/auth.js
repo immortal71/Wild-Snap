@@ -106,8 +106,8 @@ router.post('/google', async (req, res, next) => {
     let googlePayload;
     try {
       const verifyRes = await axios.get(
-        `https://oauth2.googleapis.com/tokeninfo?id_token=${idToken}`,
-        { timeout: 10000 }
+        'https://oauth2.googleapis.com/tokeninfo',
+        { params: { id_token: idToken }, timeout: 10000 }
       );
       googlePayload = verifyRes.data;
     } catch (err) {
