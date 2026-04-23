@@ -1,6 +1,7 @@
 const express = require('express');
 const multer = require('multer');
 const sharp = require('sharp');
+const axios = require('axios');
 const db = require('../config/database');
 const redis = require('../config/redis');
 const { authenticate } = require('../middleware/auth');
@@ -365,14 +366,15 @@ router.post('/sync', authenticate, async (req, res, next) => {
           fileBuffer = Buffer.from(matches[2], 'base64');
         } else if (photo.startsWith('https://')) {
           // Only allow HTTPS URLs to public hosts — block private/internal ranges
-          let parsedUrl;
+          let safeUrl;
           try {
-            parsedUrl = new URL(photo);
+            safeUrl = new URL(photo);
+            if (safeUrl.protocol !== 'https:') throw new Error('Non-HTTPS');
           } catch {
             results.push({ success: false, error: 'Invalid photo URL' });
             continue;
           }
-          const hostname = parsedUrl.hostname.toLowerCase();
+          const hostname = safeUrl.hostname.toLowerCase();
           // Block private IP ranges and localhost
           const blockedPatterns = [
             /^localhost$/,
@@ -382,15 +384,16 @@ router.post('/sync', authenticate, async (req, res, next) => {
             /^192\.168\./,
             /^169\.254\./,
             /^::1$/,
-            /^fc00:/,
-            /^fe80:/,
+            /^fc00:/i,
+            /^fe80:/i,
           ];
           if (blockedPatterns.some((p) => p.test(hostname))) {
             results.push({ success: false, error: 'Photo URL points to a blocked address' });
             continue;
           }
-          const axiosLib = require('axios');
-          const imgRes = await axiosLib.get(photo, {
+          // Use the re-serialized URL from the URL object (not raw user input) to prevent injection
+          const safeHref = safeUrl.href;
+          const imgRes = await axios.get(safeHref, {
             responseType: 'arraybuffer',
             timeout: 15000,
             maxRedirects: 3,

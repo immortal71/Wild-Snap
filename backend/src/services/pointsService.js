@@ -151,7 +151,7 @@ function getWeekKey() {
   const now = new Date();
   const day = now.getUTCDay();
   const diff = now.getUTCDate() - day + (day === 0 ? -6 : 1);
-  const monday = new Date(now.setUTCDate(diff));
+  const monday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), diff));
   return monday.toISOString().split('T')[0];
 }
 
