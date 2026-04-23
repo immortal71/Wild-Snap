@@ -89,6 +89,20 @@ router.patch('/me', authenticate, upload.single('avatar'), async (req, res, next
   }
 });
 
+// PUT /api/users/me/fcm-token — register or update FCM push token
+router.put('/me/fcm-token', authenticate, async (req, res, next) => {
+  try {
+    const { fcm_token } = req.body;
+    if (!fcm_token || typeof fcm_token !== 'string') {
+      return res.status(400).json({ success: false, error: 'fcm_token is required' });
+    }
+    await db.query('UPDATE users SET fcm_token = $1 WHERE id = $2', [fcm_token, req.user.id]);
+    return res.json({ success: true, data: { message: 'FCM token updated' } });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // GET /api/users/:username — public profile
 router.get('/:username', async (req, res, next) => {
   try {

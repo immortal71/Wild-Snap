@@ -12,8 +12,17 @@ const RARITY_BASE_POINTS = {
 /**
  * Calculate points for a sighting and award them to the user.
  * Returns { pointsAwarded, multipliers }.
+ *
+ * @param {string} userId
+ * @param {Object} animal
+ * @param {string} sightingId
+ * @param {string} capturedAt
+ * @param {Object} [options]
+ * @param {number} [options.photoQualityScore]  - 0.0–1.0 quality score from sharp stats
+ * @param {boolean} [options.isOutOfRange]      - true if sighting is outside animal's typical regions
  */
-async function calculateAndAwardPoints(userId, animal, sightingId, capturedAt) {
+async function calculateAndAwardPoints(userId, animal, sightingId, capturedAt, options = {}) {
+  const { photoQualityScore = null, isOutOfRange = false } = options;
   const captureDate = new Date(capturedAt);
   const hour = captureDate.getUTCHours();
 
@@ -59,6 +68,20 @@ async function calculateAndAwardPoints(userId, animal, sightingId, capturedAt) {
   );
   if (dailyCatchRes.rows.length === 0) {
     multipliers.push({ type: 'daily_first', factor: 1.5 });
+  }
+
+  // Photo quality bonus: up to 1.3x based on sharpness/entropy score (0.0–1.0)
+  if (photoQualityScore !== null && photoQualityScore >= 0) {
+    // Map quality score to multiplier range [1.0, 1.3]
+    const qualityFactor = 1.0 + Math.min(photoQualityScore, 1.0) * 0.3;
+    if (qualityFactor > 1.0) {
+      multipliers.push({ type: 'quality_bonus', factor: parseFloat(qualityFactor.toFixed(2)) });
+    }
+  }
+
+  // Rare location bonus: 1.5x if sighted outside animal's known range
+  if (isOutOfRange) {
+    multipliers.push({ type: 'rare_location', factor: 1.5 });
   }
 
   // Apply all multipliers

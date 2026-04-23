@@ -59,7 +59,8 @@ CREATE TABLE IF NOT EXISTS sightings (
   is_verified BOOLEAN DEFAULT FALSE,
   is_flagged BOOLEAN DEFAULT FALSE,
   offline_queued BOOLEAN DEFAULT FALSE,
-  sync_status VARCHAR(20) DEFAULT 'synced'
+  sync_status VARCHAR(20) DEFAULT 'synced',
+  perceptual_hash CHAR(16)  -- 64-bit average hash as 16-char hex string (duplicate detection)
 );
 
 -- User Collection
@@ -111,6 +112,37 @@ CREATE TABLE IF NOT EXISTS follows (
   PRIMARY KEY (follower_id, following_id)
 );
 
+-- FCM push notification tokens
+ALTER TABLE users ADD COLUMN IF NOT EXISTS fcm_token TEXT;
+
+-- Challenges
+CREATE TABLE IF NOT EXISTS challenges (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  title VARCHAR(150) NOT NULL,
+  description TEXT,
+  challenge_type VARCHAR(50) NOT NULL, -- daily | weekly | event
+  target_species_id UUID REFERENCES animals(id),   -- optional: specific animal
+  target_rarity VARCHAR(20),                         -- optional: any of this rarity
+  target_category VARCHAR(50),                       -- optional: any of this category
+  points_multiplier DECIMAL(4, 2) DEFAULT 1.0,       -- e.g. 2.0 for 2x points
+  bonus_points INT DEFAULT 0,                        -- flat bonus on completion
+  required_count INT DEFAULT 1,                      -- how many catches required
+  starts_at TIMESTAMPTZ NOT NULL,
+  ends_at TIMESTAMPTZ NOT NULL,
+  is_active BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- User progress on challenges
+CREATE TABLE IF NOT EXISTS user_challenges (
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  challenge_id UUID REFERENCES challenges(id) ON DELETE CASCADE,
+  progress INT DEFAULT 0,
+  completed BOOLEAN DEFAULT FALSE,
+  completed_at TIMESTAMPTZ,
+  PRIMARY KEY (user_id, challenge_id)
+);
+
 -- Indexes for common query patterns
 CREATE INDEX IF NOT EXISTS idx_sightings_user_id ON sightings(user_id);
 CREATE INDEX IF NOT EXISTS idx_sightings_animal_id ON sightings(animal_id);
@@ -127,3 +159,6 @@ CREATE INDEX IF NOT EXISTS idx_users_total_points ON users(total_points DESC);
 CREATE INDEX IF NOT EXISTS idx_users_weekly_points ON users(weekly_points DESC);
 CREATE INDEX IF NOT EXISTS idx_users_country ON users(country_code);
 CREATE INDEX IF NOT EXISTS idx_users_region ON users(region);
+CREATE INDEX IF NOT EXISTS idx_challenges_active ON challenges(is_active, starts_at, ends_at);
+CREATE INDEX IF NOT EXISTS idx_user_challenges_user ON user_challenges(user_id);
+CREATE INDEX IF NOT EXISTS idx_sightings_perceptual_hash ON sightings(perceptual_hash);

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user.dart' as app;
 import 'api_service.dart';
@@ -98,6 +99,47 @@ class AuthService {
         return user;
       }
       throw response['error']?.toString() ?? 'Google sign-in failed';
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<app.User> signInWithApple() async {
+    try {
+      final appleCredential = await SignInWithApple.getAppleIDCredential(
+        scopes: [
+          AppleIDAuthorizationScopes.email,
+          AppleIDAuthorizationScopes.fullName,
+        ],
+      );
+
+      final oAuthProvider = fb.OAuthProvider('apple.com');
+      final credential = oAuthProvider.credential(
+        idToken: appleCredential.identityToken,
+        accessToken: appleCredential.authorizationCode,
+      );
+
+      final userCredential =
+          await fb.FirebaseAuth.instance.signInWithCredential(credential);
+      final idToken = await userCredential.user?.getIdToken();
+      if (idToken == null) throw 'Failed to get Apple ID token';
+
+      final response = await _api.appleSignIn(
+        identityToken: idToken,
+        givenName: appleCredential.givenName,
+        familyName: appleCredential.familyName,
+      );
+      if (response['success'] == true && response['data'] != null) {
+        final data = response['data'] as Map<String, dynamic>;
+        await saveTokens(
+          data['token']?.toString() ?? '',
+          data['refreshToken']?.toString(),
+        );
+        final user = app.User.fromJson(data['user'] as Map<String, dynamic>);
+        await _cacheUser(user);
+        return user;
+      }
+      throw response['error']?.toString() ?? 'Apple sign-in failed';
     } catch (e) {
       rethrow;
     }

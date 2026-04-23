@@ -10,6 +10,7 @@ const userRoutes = require('./routes/users');
 const sightingRoutes = require('./routes/sightings');
 const animalRoutes = require('./routes/animals');
 const leaderboardRoutes = require('./routes/leaderboard');
+const challengeRoutes = require('./routes/challenges');
 const { errorHandler } = require('./middleware/errorHandler');
 
 const app = express();
@@ -61,6 +62,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/sightings', sightingRoutes);
 app.use('/api/animals', animalRoutes);
 app.use('/api/leaderboard', leaderboardRoutes);
+app.use('/api/challenges', challengeRoutes);
 
 // 404 handler
 app.use((req, res) => {
