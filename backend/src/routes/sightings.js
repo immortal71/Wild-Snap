@@ -90,6 +90,125 @@ function sanitizeFilename(filename) {
   return path.basename(filename).replace(/[^a-zA-Z0-9._-]/g, '_');
 }
 
+/**
+ * Compute a 64-bit average perceptual hash from an image buffer.
+ * Returns a 16-char lowercase hex string, or null on failure.
+ */
+async function computePerceptualHash(buffer) {
+  try {
+    // Resize to 8×8 grayscale and get raw pixel data
+    const { data } = await sharp(buffer)
+      .resize(8, 8, { fit: 'fill' })
+      .grayscale()
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+
+    const pixels = Array.from(data);
+    const avg = pixels.reduce((s, p) => s + p, 0) / pixels.length;
+
+    // Build 64-bit hash: 1 if pixel >= average, else 0
+    let hashBigInt = 0n;
+    for (let i = 0; i < 64; i++) {
+      if (pixels[i] >= avg) {
+        hashBigInt |= (1n << BigInt(63 - i));
+      }
+    }
+    return hashBigInt.toString(16).padStart(16, '0');
+  } catch (_) {
+    return null;
+  }
+}
+
+/**
+ * Count the number of differing bits (Hamming distance) between two 16-char hex hashes.
+ */
+function hammingDistance(hashA, hashB) {
+  let diff = 0n;
+  try {
+    diff = BigInt('0x' + hashA) ^ BigInt('0x' + hashB);
+  } catch (_) {
+    return 64;
+  }
+  let count = 0;
+  let v = diff;
+  while (v > 0n) {
+    count += Number(v & 1n);
+    v >>= 1n;
+  }
+  return count;
+}
+
+/**
+ * Check if a perceptual hash is a near-duplicate of any sighting submitted in the last 24h.
+ * Returns true if a duplicate is detected (Hamming distance ≤ 10).
+ */
+async function isDuplicatePhoto(newHash, userId) {
+  if (!newHash) return false;
+  const cutoff = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+  const recentRes = await db.query(
+    `SELECT perceptual_hash FROM sightings
+     WHERE user_id = $1
+       AND perceptual_hash IS NOT NULL
+       AND submitted_at >= $2
+     LIMIT 100`,
+    [userId, cutoff]
+  );
+  const DUPLICATE_THRESHOLD = 10; // bits — ~15% difference
+  for (const row of recentRes.rows) {
+    if (hammingDistance(newHash, row.perceptual_hash) <= DUPLICATE_THRESHOLD) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Estimate photo quality score (0.0–1.0) using image entropy from sharp stats.
+ * Higher entropy generally correlates with sharpness and detail.
+ */
+async function computePhotoQualityScore(buffer) {
+  try {
+    const stats = await sharp(buffer).stats();
+    // Use the mean channel entropy as a proxy for image quality.
+    // sharp entropy ranges roughly 0–8 bits/pixel for natural images.
+    const avgEntropy = stats.channels.reduce((s, c) => s + (c.entropy || 0), 0) / stats.channels.length;
+    // Normalize to [0, 1] with a ceiling of 7 bits (well-exposed wildlife photo)
+    return Math.min(avgEntropy / 7.0, 1.0);
+  } catch (_) {
+    return null;
+  }
+}
+
+/**
+ * Determine if a lat/lng is outside the animal's typical_regions.
+ * For MVP uses a simple continent bounding-box heuristic for South Asian regions.
+ */
+function isOutOfTypicalRange(animal, lat, lng) {
+  if (!animal.typical_regions || animal.typical_regions.length === 0) return false;
+  if (!lat || !lng) return false;
+
+  const latF = parseFloat(lat);
+  const lngF = parseFloat(lng);
+
+  // If the animal has typical_regions listed and the sighting lat/lng is clearly
+  // outside South Asia (rough bounding box: lat 5–40, lng 60–100), flag it.
+  const SOUTH_ASIA = { latMin: 5, latMax: 40, lngMin: 60, lngMax: 100 };
+  const inSouthAsia =
+    latF >= SOUTH_ASIA.latMin &&
+    latF <= SOUTH_ASIA.latMax &&
+    lngF >= SOUTH_ASIA.lngMin &&
+    lngF <= SOUTH_ASIA.lngMax;
+
+  // If the animal is from South Asia and the sighting is outside South Asia,
+  // it is considered out of range.
+  const hasSouthAsianRegion = animal.typical_regions.some((r) =>
+    /nepal|india|bangladesh|bhutan|sri lanka|pakistan|south asia/i.test(r)
+  );
+  if (hasSouthAsianRegion && !inSouthAsia) return true;
+
+  return false;
+}
+
 async function processSighting(userId, fileBuffer, filename, mimetype, body) {
   const { lat, lng, altitude_m, compass_bearing, captured_at, offline_queued = false } = body;
 
@@ -102,6 +221,17 @@ async function processSighting(userId, fileBuffer, filename, mimetype, body) {
     if (!valid) {
       throw createError(422, 'Location data failed velocity check — possible GPS spoofing');
     }
+  }
+
+  // Compute perceptual hash + quality score in parallel (before thumbnail/upload)
+  const [perceptualHash, photoQualityScore] = await Promise.all([
+    computePerceptualHash(fileBuffer),
+    computePhotoQualityScore(fileBuffer),
+  ]);
+
+  // Duplicate detection
+  if (perceptualHash && await isDuplicatePhoto(perceptualHash, userId)) {
+    throw createError(409, 'This photo appears to be a duplicate of a submission from the last 24 hours');
   }
 
   // Generate thumbnail with sharp
@@ -128,27 +258,36 @@ async function processSighting(userId, fileBuffer, filename, mimetype, body) {
     animal = await matchAnimalFromSuggestions(suggestions, db.query.bind(db));
   }
 
+  // Determine if sighting is out of animal's typical range
+  const isOutOfRange = animal ? isOutOfTypicalRange(animal, lat, lng) : false;
+
   // Insert sighting
+  // Column order: $1=user_id, $2=animal_id, $3=photo_url, $4=thumbnail_url,
+  //   $5=latitude, $6=longitude, $7=altitude_m, $8=compass_bearing,
+  //   $9=captured_at, $10=ai_confidence, $11=ai_raw_response,
+  //   $12=photo_quality_score, $13=offline_queued, sync_status='synced' (literal), $14=perceptual_hash
   const sightingRes = await db.query(
     `INSERT INTO sightings
        (user_id, animal_id, photo_url, thumbnail_url, latitude, longitude,
         altitude_m, compass_bearing, captured_at, ai_confidence, ai_raw_response,
-        offline_queued, sync_status)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'synced')
+        photo_quality_score, offline_queued, sync_status, perceptual_hash)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'synced',$14)
      RETURNING *`,
     [
-      userId,
-      animal?.id || null,
-      photoUrl,
-      thumbnailUrl,
-      lat || null,
-      lng || null,
-      altitude_m ? parseInt(altitude_m) : null,
-      compass_bearing ? parseInt(compass_bearing) : null,
-      capturedAt,
-      aiConfidence,
-      rawResponse ? JSON.stringify(rawResponse) : null,
-      offline_queued === true || offline_queued === 'true',
+      userId,           // $1
+      animal?.id || null, // $2
+      photoUrl,         // $3
+      thumbnailUrl,     // $4
+      lat || null,      // $5
+      lng || null,      // $6
+      altitude_m ? parseInt(altitude_m) : null,         // $7
+      compass_bearing ? parseInt(compass_bearing) : null, // $8
+      capturedAt,       // $9
+      aiConfidence,     // $10
+      rawResponse ? JSON.stringify(rawResponse) : null, // $11
+      photoQualityScore !== null ? parseFloat(photoQualityScore.toFixed(4)) : null, // $12
+      offline_queued === true || offline_queued === 'true', // $13
+      perceptualHash,   // $14
     ]
   );
   const sighting = sightingRes.rows[0];
@@ -159,8 +298,11 @@ async function processSighting(userId, fileBuffer, filename, mimetype, body) {
   let currentStreak = 0;
 
   if (animal) {
-    // Award points
-    const pointsResult = await calculateAndAwardPoints(userId, animal, sighting.id, capturedAt);
+    // Award points with all multipliers
+    const pointsResult = await calculateAndAwardPoints(userId, animal, sighting.id, capturedAt, {
+      photoQualityScore,
+      isOutOfRange,
+    });
     pointsAwarded = pointsResult.pointsAwarded;
     multipliers = pointsResult.multipliers;
 
@@ -194,6 +336,7 @@ async function processSighting(userId, fileBuffer, filename, mimetype, body) {
     multipliers,
     new_achievements: newAchievements,
     streak: currentStreak,
+    is_out_of_range: isOutOfRange,
   };
 }
 

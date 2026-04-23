@@ -1,6 +1,7 @@
 const express = require('express');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const axios = require('axios');
 const db = require('../config/database');
 const redis = require('../config/redis');
@@ -141,6 +142,88 @@ router.post('/google', async (req, res, next) => {
          VALUES ($1, $2, $3)
          RETURNING *`,
         [username, email.toLowerCase(), picture || null]
+      );
+      user = insertRes.rows[0];
+    }
+
+    const { token, refreshToken } = generateTokens(user);
+    await redis.set(`refresh:${user.id}`, refreshToken, 'EX', REFRESH_TOKEN_TTL_SECONDS);
+
+    return res.json({ success: true, data: { token, refreshToken, user: sanitizeUser(user) } });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/auth/apple
+router.post('/apple', async (req, res, next) => {
+  try {
+    const { identityToken, fullName } = req.body;
+    if (!identityToken) {
+      return res.status(400).json({ success: false, error: 'identityToken is required' });
+    }
+
+    // Verify the Apple identity token using Apple's public keys
+    let applePayload;
+    try {
+      // Fetch Apple's public keys
+      const keysRes = await axios.get('https://appleid.apple.com/auth/keys', { timeout: 10000 });
+      const keys = keysRes.data.keys;
+
+      // Decode the token header to find the right key
+      const headerB64 = identityToken.split('.')[0]; // JWT header (base64url-encoded)
+      const header = JSON.parse(Buffer.from(headerB64, 'base64url').toString());
+
+      const matchingKey = keys.find((k) => k.kid === header.kid);
+      if (!matchingKey) {
+        return res.status(401).json({ success: false, error: 'Apple public key not found' });
+      }
+
+      // Convert JWK to PEM using crypto
+      const publicKey = crypto.createPublicKey({ key: matchingKey, format: 'jwk' });
+      const pemKey = publicKey.export({ type: 'spki', format: 'pem' });
+
+      applePayload = jwt.verify(identityToken, pemKey, {
+        algorithms: ['RS256'],
+        issuer: 'https://appleid.apple.com',
+      });
+    } catch (err) {
+      return res.status(401).json({ success: false, error: 'Invalid Apple identity token' });
+    }
+
+    const { sub: appleUserId, email } = applePayload;
+    if (!appleUserId) {
+      return res.status(400).json({ success: false, error: 'Apple token missing user identifier' });
+    }
+
+    // Upsert user — Apple may not return email on repeat sign-ins
+    let userRes = email
+      ? await db.query('SELECT * FROM users WHERE lower(email) = lower($1)', [email])
+      : { rows: [] };
+    let user = userRes.rows[0];
+
+    if (!user) {
+      // Derive a username from fullName or email or appleUserId
+      const nameParts = fullName
+        ? [fullName.givenName, fullName.familyName].filter(Boolean).join(' ')
+        : null;
+      const baseUsername = (nameParts || (email ? email.split('@')[0] : appleUserId))
+        .replace(/[^a-zA-Z0-9_]/g, '_')
+        .slice(0, 25)
+        .toLowerCase();
+      let username = baseUsername;
+      let suffix = 1;
+      while (true) {
+        const exists = await db.query('SELECT id FROM users WHERE username = $1', [username]);
+        if (exists.rows.length === 0) break;
+        username = `${baseUsername}${suffix++}`;
+      }
+
+      const insertRes = await db.query(
+        `INSERT INTO users (username, email)
+         VALUES ($1, $2)
+         RETURNING *`,
+        [username, email ? email.toLowerCase() : null]
       );
       user = insertRes.rows[0];
     }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'dart:io' show Platform;
 import '../../providers/auth_provider.dart';
 import '../../theme/app_colors.dart';
 import '../main_screen.dart';
@@ -52,6 +53,17 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  Future<void> _appleSignIn() async {
+    final auth = context.read<AuthProvider>();
+    auth.clearError();
+    final success = await auth.signInWithApple();
+    if (success && mounted) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const MainScreen()),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -70,6 +82,8 @@ class _LoginScreenState extends State<LoginScreen> {
               _buildDivider(),
               const SizedBox(height: 20),
               _buildGoogleButton(),
+              const SizedBox(height: 12),
+              if (Platform.isIOS) _buildAppleButton(),
               const SizedBox(height: 32),
               _buildRegisterLink(),
             ],
@@ -226,6 +240,21 @@ class _LoginScreenState extends State<LoginScreen> {
             onPressed: auth.isLoading ? null : _googleSignIn,
             icon: const Text('G', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
             label: const Text('Continue with Google'),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildAppleButton() {
+    return Consumer<AuthProvider>(
+      builder: (context, auth, _) {
+        return SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: auth.isLoading ? null : _appleSignIn,
+            icon: const Icon(Icons.apple, size: 20),
+            label: const Text('Continue with Apple'),
           ),
         );
       },

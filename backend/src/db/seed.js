@@ -668,8 +668,90 @@ async function seed() {
   await seedAchievements();
   console.log('  ✓ Achievements seeded');
 
+  // Seed challenges (7-day rolling window examples)
+  await seedChallenges();
+
   console.log(`\nDone! Inserted: ${inserted}, Skipped (already existed): ${skipped}`);
   await db.pool.end();
+}
+
+async function seedChallenges() {
+  const now = new Date();
+  // Align to the start of today (UTC)
+  const todayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  const weekEnd = new Date(todayStart);
+  weekEnd.setUTCDate(weekEnd.getUTCDate() + 7);
+  const todayEnd = new Date(todayStart);
+  todayEnd.setUTCDate(todayEnd.getUTCDate() + 1);
+
+  const challenges = [
+    {
+      title: '🐦 Bird Watcher - Photograph any bird today for 2x points',
+      description: 'Photograph at least one bird species today to earn a 2x points multiplier on that catch.',
+      challenge_type: 'daily',
+      target_category: 'bird',
+      points_multiplier: 2.0,
+      bonus_points: 0,
+      required_count: 1,
+      starts_at: todayStart.toISOString(),
+      ends_at: todayEnd.toISOString(),
+    },
+    {
+      title: '🦎 Reptile Week - Catch 3 reptiles this week',
+      description: 'Photograph three different reptile sightings this week to earn a 500-point bonus.',
+      challenge_type: 'weekly',
+      target_category: 'reptile',
+      points_multiplier: 1.0,
+      bonus_points: 500,
+      required_count: 3,
+      starts_at: todayStart.toISOString(),
+      ends_at: weekEnd.toISOString(),
+    },
+    {
+      title: '🌟 Rarity Hunter - Catch a Rare (or better) animal this week',
+      description: 'Photograph at least one rare, epic, or legendary animal this week for a 750-point bonus.',
+      challenge_type: 'weekly',
+      target_rarity: 'rare',
+      points_multiplier: 1.0,
+      bonus_points: 750,
+      required_count: 1,
+      starts_at: todayStart.toISOString(),
+      ends_at: weekEnd.toISOString(),
+    },
+  ];
+
+  for (const ch of challenges) {
+    try {
+      const existing = await db.query(
+        `SELECT id FROM challenges WHERE title = $1 AND starts_at = $2`,
+        [ch.title, ch.starts_at]
+      );
+      if (existing.rows.length > 0) continue;
+
+      await db.query(
+        `INSERT INTO challenges
+           (title, description, challenge_type, target_category, target_rarity,
+            points_multiplier, bonus_points, required_count, starts_at, ends_at, is_active)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,TRUE)`,
+        [
+          ch.title,
+          ch.description,
+          ch.challenge_type,
+          ch.target_category || null,
+          ch.target_rarity || null,
+          ch.points_multiplier,
+          ch.bonus_points,
+          ch.required_count,
+          ch.starts_at,
+          ch.ends_at,
+        ]
+      );
+      console.log(`  ✓ [challenge] ${ch.title.slice(0, 60)}`);
+    } catch (err) {
+      console.error(`  ✗ Failed to insert challenge:`, err.message);
+    }
+  }
+  console.log('  ✓ Challenges seeded');
 }
 
 seed().catch((err) => {

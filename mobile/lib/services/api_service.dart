@@ -75,6 +75,26 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> appleSignIn({
+    required String identityToken,
+    String? givenName,
+    String? familyName,
+  }) async {
+    try {
+      final response = await _dio.post('/auth/apple', data: {
+        'identityToken': identityToken,
+        if (givenName != null || familyName != null)
+          'fullName': {
+            if (givenName != null) 'givenName': givenName,
+            if (familyName != null) 'familyName': familyName,
+          },
+      });
+      return response.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
   Future<Map<String, dynamic>> refreshToken(String refreshToken) async {
     try {
       final response = await _dio.post('/auth/refresh', data: {'refresh_token': refreshToken});
@@ -226,6 +246,45 @@ class ApiService {
         'period': period,
       });
       return response.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  // ── Challenges ────────────────────────────────────────
+
+  Future<Map<String, dynamic>> getActiveChallenges() async {
+    try {
+      final response = await _dio.get('/challenges/active');
+      return response.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getChallengeById(String id) async {
+    try {
+      final response = await _dio.get('/challenges/$id');
+      return response.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> updateChallengeProgress(String id) async {
+    try {
+      final response = await _dio.post('/challenges/$id/progress');
+      return response.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  // ── FCM Token ─────────────────────────────────────────
+
+  Future<void> registerFcmToken(String fcmToken) async {
+    try {
+      await _dio.put('/users/me/fcm-token', data: {'fcm_token': fcmToken});
     } on DioException catch (e) {
       throw _handleError(e);
     }
