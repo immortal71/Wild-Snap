@@ -171,20 +171,7 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => CaptureResultSheet(
-        sighting: isOffline
-            ? sighting
-            : Sighting(
-                id: sighting.id,
-                userId: sighting.userId,
-                animalName: 'Bengal Tiger',
-                scientificName: 'Panthera tigris tigris',
-                rarity: 'epic',
-                pointsEarned: 300,
-                latitude: sighting.latitude,
-                longitude: sighting.longitude,
-                capturedAt: sighting.capturedAt,
-                isSynced: sighting.isSynced,
-              ),
+        sighting: sighting,
         isOffline: isOffline,
         onAddToCollection: () {
           Navigator.of(context).pop();
